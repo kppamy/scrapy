@@ -5,6 +5,7 @@ import six
 from six.moves.urllib.parse import urlparse, urljoin
 
 import lxml.etree as etree
+from w3lib.url import canonicalize_url
 
 from scrapy.link import Link
 from scrapy.utils.misc import arg_to_iter, rel_has_nofollow
@@ -27,11 +28,17 @@ def _nons(tag):
 
 
 class LxmlParserLinkExtractor(object):
-    def __init__(self, tag="a", attr="href", process=None, unique=False):
+    def __init__(self, tag="a", attr="href", process=None, unique=False,
+                 canonicalized=False):
         self.scan_tag = tag if callable(tag) else lambda t: t == tag
         self.scan_attr = attr if callable(attr) else lambda a: a == attr
         self.process_attr = process if callable(process) else lambda v: v
         self.unique = unique
+        if canonicalized:
+            self.link_key = lambda link: link.url
+        else:
+            self.link_key = lambda link: canonicalize_url(link.url,
+                                                          keep_fragments=True)
 
     def _iter_links(self, document):
         for el in document.iter(etree.Element):
@@ -77,20 +84,20 @@ class LxmlParserLinkExtractor(object):
 
     def _deduplicate_if_needed(self, links):
         if self.unique:
-            return unique_list(links, key=lambda link: link.url)
+            return unique_list(links, key=self.link_key)
         return links
 
 
 class LxmlLinkExtractor(FilteringLinkExtractor):
 
     def __init__(self, allow=(), deny=(), allow_domains=(), deny_domains=(), restrict_xpaths=(),
-                 tags=('a', 'area'), attrs=('href',), canonicalize=True,
+                 tags=('a', 'area'), attrs=('href',), canonicalize=False,
                  unique=True, process_value=None, deny_extensions=None, restrict_css=()):
         tags, attrs = set(arg_to_iter(tags)), set(arg_to_iter(attrs))
         tag_func = lambda x: x in tags
         attr_func = lambda x: x in attrs
         lx = LxmlParserLinkExtractor(tag=tag_func, attr=attr_func,
-            unique=unique, process=process_value)
+            unique=unique, process=process_value, canonicalized=canonicalize)
 
         super(LxmlLinkExtractor, self).__init__(lx, allow=allow, deny=deny,
             allow_domains=allow_domains, deny_domains=deny_domains,
