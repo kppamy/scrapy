@@ -6,8 +6,8 @@ from six.moves.urllib.parse import urljoin
 import warnings
 from sgmllib import SGMLParser
 
-from w3lib.url import safe_url_string
-from scrapy.selector import Selector
+from w3lib.url import safe_url_string, canonicalize_url
+
 from scrapy.link import Link
 from scrapy.linkextractors import FilteringLinkExtractor
 from scrapy.utils.misc import arg_to_iter, rel_has_nofollow
@@ -18,7 +18,8 @@ from scrapy.exceptions import ScrapyDeprecationWarning
 
 class BaseSgmlLinkExtractor(SGMLParser):
 
-    def __init__(self, tag="a", attr="href", unique=False, process_value=None):
+    def __init__(self, tag="a", attr="href", unique=False, process_value=None,
+                 canonicalized=False):
         warnings.warn(
             "BaseSgmlLinkExtractor is deprecated and will be removed in future releases. "
             "Please use scrapy.linkextractors.LinkExtractor",
@@ -30,6 +31,11 @@ class BaseSgmlLinkExtractor(SGMLParser):
         self.process_value = (lambda v: v) if process_value is None else process_value
         self.current_link = None
         self.unique = unique
+        if canonicalized:
+            self.link_key = lambda link: link.url
+        else:
+            self.link_key = lambda link: canonicalize_url(link.url,
+                                                          keep_fragments=True)
 
     def _extract_links(self, response_text, response_url, response_encoding, base_url=None):
         """ Do the real extraction work """
@@ -58,8 +64,7 @@ class BaseSgmlLinkExtractor(SGMLParser):
 
         The subclass should override it if necessary
         """
-        links = unique_list(links, key=lambda link: link.url) if self.unique else links
-        return links
+        return unique_list(links, key=self.link_key) if self.unique else links
 
     def extract_links(self, response):
         # wrapper needed to allow to work directly with text
@@ -102,7 +107,7 @@ class BaseSgmlLinkExtractor(SGMLParser):
 class SgmlLinkExtractor(FilteringLinkExtractor):
 
     def __init__(self, allow=(), deny=(), allow_domains=(), deny_domains=(), restrict_xpaths=(),
-                 tags=('a', 'area'), attrs=('href',), canonicalize=True, unique=True,
+                 tags=('a', 'area'), attrs=('href',), canonicalize=False, unique=True,
                  process_value=None, deny_extensions=None, restrict_css=()):
 
         warnings.warn(
@@ -118,7 +123,8 @@ class SgmlLinkExtractor(FilteringLinkExtractor):
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', ScrapyDeprecationWarning)
             lx = BaseSgmlLinkExtractor(tag=tag_func, attr=attr_func,
-                unique=unique, process_value=process_value)
+                unique=unique, process_value=process_value,
+                canonicalized=canonicalize)
 
         super(SgmlLinkExtractor, self).__init__(lx, allow=allow, deny=deny,
             allow_domains=allow_domains, deny_domains=deny_domains,
