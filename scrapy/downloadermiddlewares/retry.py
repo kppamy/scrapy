@@ -81,7 +81,7 @@ class RetryMiddleware(object):
             self.stats.inc_value('retry/reason_count/%s' % reason)
             return retryreq
         else:
-            self.stats.inc_value('retry/stopped')
+            self.stats.inc_value('retry/max_reached')
             logger.debug("Gave up retrying %(request)s (failed %(retries)d times): %(reason)s",
                          {'request': request, 'retries': retries, 'reason': reason},
                          extra={'spider': spider})

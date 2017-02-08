@@ -70,7 +70,7 @@ class RetryTest(unittest.TestCase):
         # discard it
         assert self.mw.process_response(req, rsp, self.spider) is rsp
 
-        assert self.crawler.stats.get_value('retry/stopped') == 1
+        assert self.crawler.stats.get_value('retry/max_reached') == 1
         assert self.crawler.stats.get_value('retry/reason_count/503 Service Unavailable') == 2
         assert self.crawler.stats.get_value('retry/count') == 2
 
@@ -84,7 +84,7 @@ class RetryTest(unittest.TestCase):
             self._test_retry_exception(req, exc('foo'))
 
         stats = self.crawler.stats
-        assert stats.get_value('retry/stopped') == len(exceptions)
+        assert stats.get_value('retry/max_reached') == len(exceptions)
         assert stats.get_value('retry/count') == len(exceptions) * 2
         assert stats.get_value('retry/reason_count/twisted.internet.defer.TimeoutError') == 2
 
